@@ -1,11 +1,359 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
-    <title>My First Website</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار سرعة الطباعة باللغة العربية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        .word {
+            display: inline-block;
+            margin: 0.25rem 0.4rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.375rem;
+            transition: all 0.15s ease-in-out;
+        }
+
+        /* Standard active state */
+        .word.active {
+            background-color: #e2e8f0;
+            color: #0f172a;
+        }
+
+        /* Active state when the user is typing with an error */
+        .word.active.error {
+            background-color: #fca5a5;
+            color: #7f1d1d;
+        }
+
+        /* Correct and incorrect evaluated words */
+        .word.correct {
+            color: #16a34a; /* Tailwind green-600 */
+        }
+        .word.incorrect {
+            color: #dc2626; /* Tailwind red-600 */
+            text-decoration: line-through;
+        }
+
+        /* Hide scrollbar for a cleaner look but keep scrolling functional */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 </head>
-<body>
-    <h1>Hello, World!</h1>
-    <p>This is my first website.</p>
-    <button onclick="alert('Hello!')">Click Me</button>
+<body class="min-h-screen text-slate-800 flex flex-col items-center justify-center p-4 selection:bg-blue-200">
+
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-3xl p-6 md:p-10 border border-slate-100">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-extrabold text-slate-800 mb-3 flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                اختبار سرعة الطباعة
+            </h1>
+            <p class="text-lg text-slate-500 font-semibold">اختبر سرعتك في الكتابة باللغة العربية. يبدأ الوقت مع أول حرف تكتبه.</p>
+        </header>
+
+        <!-- Test Area -->
+        <div id="test-section" class="flex flex-col gap-6">
+            <!-- Timer Display -->
+            <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xl font-bold text-slate-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    الوقت: <span id="time-left" class="text-2xl text-blue-600 ml-1">60</span> ثانية
+                </div>
+                <button onclick="initTest()" class="text-slate-500 hover:text-slate-800 transition-colors p-2 rounded-full hover:bg-slate-200" title="إعادة الاختبار">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Words Display Box -->
+            <div 
+                id="word-container" 
+                class="bg-white border-2 border-slate-200 rounded-2xl p-5 text-2xl md:text-3xl font-semibold leading-relaxed h-[9.5rem] md:h-[11rem] overflow-y-auto no-scrollbar relative select-none scroll-smooth cursor-text shadow-inner"
+                onclick="document.getElementById('input-field').focus()">
+                <!-- Words will be injected here via JavaScript -->
+            </div>
+
+            <!-- Input Box -->
+            <div class="flex justify-center mt-2">
+                <input 
+                    type="text" 
+                    id="input-field" 
+                    class="w-full max-w-2xl text-center text-2xl md:text-3xl p-4 md:p-5 border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all shadow-sm font-semibold text-slate-800 placeholder-slate-400"
+                    placeholder="ابدأ الكتابة هنا..."
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    dir="rtl">
+            </div>
+        </div>
+
+        <!-- Results Section (Hidden by default) -->
+        <div id="results-section" class="hidden flex-col items-center justify-center py-8 animate-fade-in">
+            <h2 class="text-3xl font-bold text-slate-800 mb-8">النتيجة النهائية</h2>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 w-full mb-10">
+                <!-- WPM Card -->
+                <div class="bg-blue-50 border-2 border-blue-100 rounded-2xl p-6 text-center shadow-sm">
+                    <p class="text-slate-500 font-semibold mb-2 text-lg">السرعة (WPM)</p>
+                    <p class="text-5xl font-extrabold text-blue-600" id="result-wpm">0</p>
+                    <p class="text-sm text-slate-400 mt-2">كلمة / دقيقة</p>
+                </div>
+                
+                <!-- Accuracy Card -->
+                <div class="bg-green-50 border-2 border-green-100 rounded-2xl p-6 text-center shadow-sm">
+                    <p class="text-slate-500 font-semibold mb-2 text-lg">الدقة</p>
+                    <p class="text-5xl font-extrabold text-green-600"><span id="result-accuracy">0</span>%</p>
+                    <p class="text-sm text-slate-400 mt-2">نسبة الصواب</p>
+                </div>
+
+                <!-- Correct Words Card -->
+                <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+                    <p class="text-slate-500 font-semibold mb-2 text-lg">كلمات صحيحة</p>
+                    <p class="text-4xl font-bold text-slate-700 mt-2" id="result-correct">0</p>
+                </div>
+
+                <!-- Incorrect Words Card -->
+                <div class="bg-red-50 border-2 border-red-100 rounded-2xl p-6 text-center shadow-sm">
+                    <p class="text-slate-500 font-semibold mb-2 text-lg">كلمات خاطئة</p>
+                    <p class="text-4xl font-bold text-red-500 mt-2" id="result-incorrect">0</p>
+                </div>
+            </div>
+
+            <button onclick="initTest()" class="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-12 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                إعادة المحاولة
+            </button>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Extensive array of common Arabic words
+        const arabicDictionary = [
+            "في", "من", "على", "إلى", "لا", "أن", "ما", "الله", "عن", "هذا",
+            "كان", "مع", "التي", "كل", "أو", "هو", "هذه", "الذي", "قال", "إن",
+            "لكن", "بعد", "حتى", "كما", "قد", "نحن", "ذلك", "غير", "أنا", "إذا",
+            "بين", "فقط", "بها", "عند", "وقد", "أي", "الناس", "أنه", "ثم", "وهو",
+            "عليها", "قبل", "هناك", "بأن", "بعض", "ولا", "بهم", "أكثر", "اليوم", "وهي",
+            "إلا", "بما", "لها", "فيه", "ولم", "الآن", "فإن", "الذين", "مما", "له",
+            "لهم", "فيم", "ليس", "وإن", "هنا", "أين", "كيف", "متى", "نعم", "لماذا",
+            "كثير", "جدا", "جيد", "عظيم", "صغير", "كبير", "وقت", "عمل", "حياة", "سنة",
+            "رجل", "امرأة", "طفل", "دولة", "مدينة", "بيت", "سيارة", "طريق", "عالم", "شمس",
+            "قمر", "أرض", "ماء", "نار", "هواء", "كتاب", "قلم", "علم", "نور", "صوت",
+            "صورة", "قلب", "عين", "يد", "رأس", "السلام", "الخير", "صباح", "مساء", "ليل",
+            "نهار", "قوة", "حق", "دين", "شعب", "تاريخ", "حكومة", "نظام", "قانون", "مدرسة",
+            "جامعة", "طالب", "معلم", "شركة", "مشروع", "برنامج", "اقتصاد", "سياسة", "ثقافة", "فن",
+            "أدب", "لغة", "عربية", "إسلام", "مسلم", "عرب", "مصر", "سعودية", "مغرب", "جزائر",
+            "عراق", "سوريا", "لبنان", "أردن", "فلسطين", "يمن", "عمان", "كويت", "بحرين", "قطر",
+            "إمارات", "تونس", "سودان", "ليبيا", "جميل", "طويل", "قصير", "سريع", "بطيء", "جديد",
+            "قديم", "قوي", "ضعيف", "غني", "فقير", "سعيد", "حزين", "صعب", "سهل", "مهم",
+            "عائلة", "أب", "أم", "أخ", "أخت", "ابن", "ابنة", "صديق", "طبيب", "مريض"
+        ];
+
+        // State variables
+        let words = [];
+        let currentWordIndex = 0;
+        let isTyping = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let correctWordsCount = 0;
+        let incorrectWordsCount = 0;
+        let correctCharsCount = 0; // standard WPM calculation is based on characters (5 chars = 1 word)
+        
+        // DOM Elements
+        const wordContainer = document.getElementById('word-container');
+        const inputField = document.getElementById('input-field');
+        const timeLeftDisplay = document.getElementById('time-left');
+        const testSection = document.getElementById('test-section');
+        const resultsSection = document.getElementById('results-section');
+
+        // Helper to shuffle array (Fisher-Yates)
+        function shuffleArray(array) {
+            let shuffled = array.slice();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Initialize or Restart Test
+        function initTest() {
+            clearInterval(timerInterval);
+            isTyping = false;
+            timeLeft = 60;
+            currentWordIndex = 0;
+            correctWordsCount = 0;
+            incorrectWordsCount = 0;
+            correctCharsCount = 0;
+
+            timeLeftDisplay.innerText = timeLeft;
+            inputField.value = '';
+            inputField.disabled = false;
+            
+            // Switch views if restarting from results
+            testSection.classList.remove('hidden');
+            testSection.classList.add('flex');
+            resultsSection.classList.add('hidden');
+            resultsSection.classList.remove('flex');
+
+            // Generate random words list for the session (approx 250 words is more than enough for 60s)
+            words = [];
+            while(words.length < 250) {
+                words = words.concat(shuffleArray(arabicDictionary));
+            }
+            words = words.slice(0, 250);
+
+            // Render Words
+            renderWords();
+            
+            // Set focus
+            setTimeout(() => inputField.focus(), 100);
+        }
+
+        function renderWords() {
+            // Map array to spans
+            wordContainer.innerHTML = words.map((word, index) => 
+                `<span id="word-${index}" class="word">${word}</span>`
+            ).join('');
+            
+            // Set first word as active
+            updateActiveWordStyles(true);
+            wordContainer.scrollTop = 0;
+        }
+
+        // Start Timer
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeLeftDisplay.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    endTest();
+                }
+            }, 1000);
+        }
+
+        function endTest() {
+            clearInterval(timerInterval);
+            inputField.disabled = true;
+
+            // Calculations
+            // Standard typing test formula: (Total Correct Characters / 5) / Time in Min
+            const timeInMinutes = 60 / 60; // 1 minute
+            const wpm = Math.round((correctCharsCount / 5) / timeInMinutes);
+            const totalWordsTyped = correctWordsCount + incorrectWordsCount;
+            const accuracy = totalWordsTyped === 0 ? 0 : Math.round((correctWordsCount / totalWordsTyped) * 100);
+
+            // Populate Results
+            document.getElementById('result-wpm').innerText = wpm;
+            document.getElementById('result-accuracy').innerText = accuracy;
+            document.getElementById('result-correct').innerText = correctWordsCount;
+            document.getElementById('result-incorrect').innerText = incorrectWordsCount;
+
+            // Toggle sections
+            testSection.classList.add('hidden');
+            testSection.classList.remove('flex');
+            resultsSection.classList.remove('hidden');
+            resultsSection.classList.add('flex');
+        }
+
+        function updateActiveWordStyles(isStart = false) {
+            const activeSpan = document.getElementById(`word-${currentWordIndex}`);
+            if (activeSpan) {
+                activeSpan.classList.add('active');
+                
+                // Handle scrolling dynamically if we moved down a line
+                // Wait briefly for DOM to calculate layout if it's the start
+                if (!isStart) {
+                    const containerTop = wordContainer.getBoundingClientRect().top;
+                    const spanTop = activeSpan.getBoundingClientRect().top;
+                    
+                    // If the active span's top is significantly below the container's top (meaning it dropped to next line)
+                    if (spanTop - containerTop > 50) { 
+                        wordContainer.scrollTop += activeSpan.offsetHeight + 8; // move down by height + margin
+                    }
+                }
+            }
+        }
+
+        // Event Listeners for Input Field
+        inputField.addEventListener('keydown', (e) => {
+            // Prevent spacebar scrolling page or messing up input
+            if (e.code === 'Space') {
+                e.preventDefault();
+                
+                if (timeLeft <= 0) return;
+
+                const typedValue = inputField.value.trim();
+                if (typedValue === '') return; // ignore multiple spaces
+
+                // Evaluate word
+                const targetWord = words[currentWordIndex];
+                const activeSpan = document.getElementById(`word-${currentWordIndex}`);
+                
+                activeSpan.classList.remove('active', 'error');
+
+                if (typedValue === targetWord) {
+                    activeSpan.classList.add('correct');
+                    correctWordsCount++;
+                    correctCharsCount += targetWord.length + 1; // +1 includes space character standard 
+                } else {
+                    activeSpan.classList.add('incorrect');
+                    incorrectWordsCount++;
+                }
+
+                currentWordIndex++;
+                inputField.value = '';
+                
+                updateActiveWordStyles();
+            }
+        });
+
+        inputField.addEventListener('input', (e) => {
+            if (!isTyping && inputField.value.length > 0) {
+                isTyping = true;
+                startTimer();
+            }
+
+            // Real-time highlight for wrong letters
+            const typedValue = inputField.value.trim();
+            const targetWord = words[currentWordIndex];
+            const activeSpan = document.getElementById(`word-${currentWordIndex}`);
+            
+            if (activeSpan) {
+                if (typedValue !== '' && !targetWord.startsWith(typedValue)) {
+                    activeSpan.classList.add('error');
+                } else {
+                    activeSpan.classList.remove('error');
+                }
+            }
+        });
+
+        // Prevent pasting
+        inputField.addEventListener('paste', e => e.preventDefault());
+
+        // Initial launch
+        document.addEventListener('DOMContentLoaded', initTest);
+
+    </script>
 </body>
 </html>
