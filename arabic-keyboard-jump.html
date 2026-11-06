@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>قفزة الحروف – تدرّب على الكتابة بالعربية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--night:#0e1a2b;--night2:#18304a;--teal:#22c3b0;--sand:#f0cf7a;--lava:#ff5a36;--paper:#f6f3ea;--mute:#9fb2c6}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--night);color:var(--paper);font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0) 8px env(safe-area-inset-bottom,0)}
+.wrap{position:relative;width:min(100%,480px);max-height:100%;aspect-ratio:480/720;height:min(100vh - 60px,720px)}
+.hud{display:flex;justify-content:space-between;gap:8px;width:min(100%,480px);padding:6px 4px;font-weight:700;font-size:15px;color:var(--mute)}
+.hud b{color:var(--paper);font-size:18px;margin-inline-start:4px}
+canvas{width:100%;height:100%;display:block;border-radius:14px;background:var(--night2);touch-action:manipulation}
+.ov{position:absolute;inset:0;border-radius:14px;background:rgba(14,26,43,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.ov[hidden]{display:none}
+h1{margin:0;font-size:38px;font-weight:900;color:var(--sand);line-height:1.2}
+p{margin:0;color:var(--mute);line-height:1.8;max-width:34ch}
+.stats{font-size:20px;line-height:2;color:var(--paper)}
+button{font:inherit;font-weight:700;font-size:18px;border:0;border-radius:12px;padding:12px 18px;cursor:pointer;background:var(--teal);color:#06242a;width:min(100%,300px)}
+button.alt{background:transparent;color:var(--paper);border:2px solid var(--mute)}
+button:hover{filter:brightness(1.1)}
+button:focus-visible{outline:3px solid var(--sand);outline-offset:3px}
+button small{display:block;font-weight:500;font-size:13px;opacity:.8}
+#kb{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+</style>
+</head>
+<body>
+<div class="hud" aria-live="off">
+  <span>الارتفاع<b id="hH">0</b></span>
+  <span>حرف/دقيقة<b id="hS">0</b></span>
+  <span>الدقة<b id="hA">100%</b></span>
+  <span>الأفضل<b id="hB">0</b></span>
+</div>
+<div class="wrap">
+  <canvas id="c" width="480" height="720" aria-label="منطقة اللعبة"></canvas>
+  <input id="kb" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="لوحة الكتابة">
+  <div class="ov" id="ov"></div>
+</div>
+
+<script>
+// خريطة لوحة المفاتيح العربية القياسية: تعمل حتى لو كانت لغة لوحة المفاتيح إنجليزية
+const MAP={KeyQ:'ض',KeyW:'ص',KeyE:'ث',KeyR:'ق',KeyT:'ف',KeyY:'غ',KeyU:'ع',KeyI:'ه',KeyO:'خ',KeyP:'ح',BracketLeft:'ج',BracketRight:'د',KeyA:'ش',KeyS:'س',KeyD:'ي',KeyF:'ب',KeyG:'ل',KeyH:'ا',KeyJ:'ت',KeyK:'ن',KeyL:'م',Semicolon:'ك',Quote:'ط',KeyZ:'ئ',KeyX:'ء',KeyC:'ؤ',KeyV:'ر',KeyN:'ى',KeyM:'ة',Comma:'و',Period:'ز',Slash:'ظ',Backquote:'ذ'};
+const LEVELS=[
+  {name:'الصف الأوسط',sub:'ش س ي ب ل ا ت ن م ك',letters:'شسيبلاتنمك',speed:1},
+  {name:'الصفان العلوي والأوسط',sub:'أضف: ض ص ث ق ف غ ع ه خ ح ج د ط',letters:'ضصثقفغعهخحجدشسيبلاتنمكط',speed:1.15},
+  {name:'جميع الحروف',sub:'كل حروف لوحة المفاتيح',letters:'ضصثقفغعهخحجدشسيبلاتنمكطئءؤرىةوزظذ',speed:1.3}
+];
+const $=s=>document.querySelector(s);
+const cv=$('#c'),ctx=cv.getContext('2d'),ov=$('#ov'),kb=$('#kb');
+const W=480,H=720,STEP=95,PW=104,PH=34,JUMP=0.18,ARABIC=/[\u0621-\u064A]/;
+let lv=0,L=LEVELS[0],state='menu',plats,idx,fx,fy,jt,camY,gap,correct,wrong,startT,shake,flash,last;
+let best=0;try{best=+localStorage.getItem('kj-best')||0}catch(e){}
+$('#hB').textContent=best;
+
+function addPlat(){
+  const i=plats.length,p=plats[i-1];let x,l;
+  do{x=[90,240,390][Math.random()*3|0]}while(x===p.x);
+  do{l=L.letters[Math.random()*L.letters.length|0]}while(l===p.l);
+  plats.push({x,l});
+}
+function start(n){
+  lv=n;L=LEVELS[n];plats=[{x:240,l:''}];while(plats.length<10)addPlat();
+  idx=0;fx=240;fy=0;jt=1;camY=0;gap=360;correct=0;wrong=0;shake=0;flash=0;startT=performance.now();last=startT;
+  state='play';ov.hidden=true;kb.focus();
+}
+function menu(){
+  state='menu';ov.hidden=false;
+  ov.innerHTML='<h1>قفزة الحروف</h1><p>اكتب الحرف المكتوب على المنصة التالية لتقفز إليها، وابتعد عن الحمم المتصاعدة.</p>'+
+   LEVELS.map((v,i)=>`<button data-l="${i}">${v.name}<small>${v.sub}</small></button>`).join('');
+  ov.querySelectorAll('button').forEach(b=>b.onclick=()=>start(+b.dataset.l));
+}
+function over(){
+  state='over';const h=idx;let nb='';
+  if(h>best){best=h;nb='<br>🏆 رقم قياسي جديد!';try{localStorage.setItem('kj-best',best)}catch(e){}}
+  $('#hB').textContent=best;
+  const m=(performance.now()-startT)/60000,spm=Math.round(correct/m),acc=correct+wrong?Math.round(correct/(correct+wrong)*100):100;
+  ov.hidden=false;
+  ov.innerHTML=`<h1>احترقت!</h1><div class="stats">وصلت إلى المنصة ${h}${nb}<br>السرعة: ${spm} حرف/دقيقة<br>الدقة: ${acc}%</div>
+  <button id="again">العب مرة أخرى</button><button class="alt" id="mn">اختيار المستوى</button>`;
+  $('#again').onclick=()=>start(lv);$('#mn').onclick=menu;$('#again').focus();
+}
+function press(ch){
+  if(state!=='play'||!ARABIC.test(ch))return;
+  if(ch===plats[idx+1].l){
+    const v=vis();fx=v.x;fy=v.y;jt=0;idx++;correct++;gap=Math.min(gap+STEP,380);flash=0.15;
+    while(plats.length<idx+10)addPlat();
+  }else{wrong++;shake=0.25;gap-=14}
+}
+function vis(){
+  const tx=plats[idx].x,ty=-idx*STEP;
+  if(jt>=1)return{x:tx,y:ty};
+  const e=1-Math.pow(1-jt,3);
+  return{x:fx+(tx-fx)*e,y:fy+(ty-fy)*e-Math.sin(Math.PI*jt)*38};
+}
+addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==='Unidentified'||e.key==='Process')return; // الجوال: يعالَج عبر input
+  let ch=e.key;
+  if(!ARABIC.test(ch))ch=MAP[e.code]||'';
+  if(ch){e.preventDefault();press(ch)}
+});
+kb.addEventListener('input',()=>{const v=kb.value;kb.value='';if(v)press(v.slice(-1))});
+cv.addEventListener('pointerdown',()=>kb.focus());
+
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(state==='play'){
+    jt=Math.min(1,jt+dt/JUMP);
+    gap-=Math.min(62,(16+idx*.7)*L.speed)*dt;
+    shake=Math.max(0,shake-dt);flash=Math.max(0,flash-dt);
+    if(gap<=0)over();
+  }
+  if(plats){const v=vis();camY+=(v.y-camY)*Math.min(1,dt*8);draw(v)}
+  if(state==='play'){
+    const m=(now-startT)/60000,acc=correct+wrong?Math.round(correct/(correct+wrong)*100):100;
+    $('#hH').textContent=idx;$('#hS').textContent=m>.05?Math.round(correct/m):0;$('#hA').textContent=acc+'%';
+  }
+  requestAnimationFrame(frame);
+}
+const sy=wy=>H*.68+(wy-camY);
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function draw(v){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0e1a2b');g.addColorStop(1,'#1d4560');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.save();
+  if(shake>0)ctx.translate(Math.sin(performance.now()/16)*6*shake/.25,0);
+  // نجوم بعيدة تتحرك ببطء مع الكاميرا
+  ctx.fillStyle='rgba(246,243,234,.35)';
+  for(let i=0;i<30;i++){const x=(i*97)%W,y=((i*211+camY*.15)%H+H)%H;ctx.fillRect(x,y,2,2)}
+  ctx.font='900 26px Cairo,Tahoma,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  for(let i=Math.max(0,idx-2);i<Math.min(plats.length,idx+8);i++){
+    const p=plats[i],y=sy(-i*STEP),nxt=i===idx+1;
+    rr(p.x-PW/2,y,PW,PH,10);
+    ctx.fillStyle=nxt?'#22c3b0':(i<=idx?'#f0cf7a':'#3a5873');ctx.fill();
+    if(p.l){ctx.fillStyle=nxt?'#06242a':'#c9d6e2';ctx.font=(nxt?'900 28px':'700 22px')+' Cairo,Tahoma,sans-serif';ctx.fillText(p.l,p.x,y+PH/2+2)}
+  }
+  // اللاعب
+  const px=v.x,py=sy(v.y)-2;
+  ctx.fillStyle=flash>0?'#fff':'#f6f3ea';rr(px-17,py-36,34,36,10);ctx.fill();
+  ctx.fillStyle='#0e1a2b';ctx.fillRect(px-9,py-26,5,8);ctx.fillRect(px+4,py-26,5,8);
+  ctx.fillStyle='#ff5a36';ctx.fillRect(px-17,py-38,34,6);
+  // الحمم
+  const lt=sy(-idx*STEP+gap),t=performance.now()/300;
+  ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,lt);
+  for(let x=0;x<=W;x+=20)ctx.lineTo(x,lt+Math.sin(x/38+t)*6);
+  ctx.lineTo(W,H);ctx.closePath();
+  const lg=ctx.createLinearGradient(0,lt,0,lt+120);lg.addColorStop(0,'#ff8a3d');lg.addColorStop(1,'#c4311a');
+  ctx.fillStyle=lg;ctx.fill();
+  ctx.restore();
+  if(state==='play'&&idx===0){ctx.fillStyle='#f6f3ea';ctx.font='700 20px Cairo,Tahoma,sans-serif';ctx.textAlign='center';ctx.fillText('اكتب الحرف الأخضر',W/2,60)}
+}
+menu();requestAnimationFrame(t=>{last=t;frame(t)});
+</script>
+</body>
+</html>
