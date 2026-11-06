@@ -51,8 +51,11 @@ const LEVELS=[
   {name:'جميع الحروف',sub:'كل حروف لوحة المفاتيح',letters:'ضصثقفغعهخحجدشسيبلاتنمكطئءؤرىةوزظذ',speed:1.3}
 ];
 const $=s=>document.querySelector(s);
+// توحيد الأشكال المتقاربة بين التخطيطات واللغات (أ إ آ → ا، ى → ي، ک → ك، ی → ي، ة تبقى كما هي)
+const norm=c=>c.replace(/[\u0623\u0625\u0622\u0671]/g,'\u0627').replace(/[\u0649\u06CC]/g,'\u064A').replace(/\u06A9/g,'\u0643');
+let useMap=false,hintT=0;try{useMap=localStorage.getItem('kj-map')==='1'}catch(e){}
 const cv=$('#c'),ctx=cv.getContext('2d'),ov=$('#ov'),kb=$('#kb');
-const W=480,H=720,STEP=95,PW=104,PH=34,JUMP=0.18,ARABIC=/[\u0621-\u064A]/;
+const W=480,H=720,STEP=95,PW=104,PH=34,JUMP=0.18,ARABIC=/[\u0621-\u064A\u06A9\u06CC]/;
 let lv=0,L=LEVELS[0],state='menu',plats,idx,fx,fy,jt,camY,gap,correct,wrong,startT,shake,flash,last;
 let best=0;try{best=+localStorage.getItem('kj-best')||0}catch(e){}
 $('#hB').textContent=best;
@@ -72,6 +75,8 @@ function menu(){
   state='menu';ov.hidden=false;
   ov.innerHTML='<h1>قفزة الحروف</h1><p>اكتب الحرف المكتوب على المنصة التالية لتقفز إليها، وابتعد عن الحمم المتصاعدة.</p>'+
    LEVELS.map((v,i)=>`<button data-l="${i}">${v.name}<small>${v.sub}</small></button>`).join('');
+  ov.insertAdjacentHTML('beforeend',`<label style="font-size:14px;color:var(--mute);max-width:34ch;line-height:1.7"><input type="checkbox" id="um" ${useMap?'checked':''}> اللعب بلوحة إنجليزية: اعتبر المفاتيح على تخطيط عربي قياسي (Arabic 101)</label>`);
+  $('#um').onchange=e=>{useMap=e.target.checked;try{localStorage.setItem('kj-map',useMap?'1':'0')}catch(_){}};
   ov.querySelectorAll('button').forEach(b=>b.onclick=()=>start(+b.dataset.l));
 }
 function over(){
@@ -86,7 +91,7 @@ function over(){
 }
 function press(ch){
   if(state!=='play'||!ARABIC.test(ch))return;
-  if(ch===plats[idx+1].l){
+  if(norm(ch)===norm(plats[idx+1].l)){
     const v=vis();fx=v.x;fy=v.y;jt=0;idx++;correct++;gap=Math.min(gap+STEP,380);flash=0.15;
     while(plats.length<idx+10)addPlat();
   }else{wrong++;shake=0.25;gap-=14}
@@ -101,7 +106,11 @@ addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey)return;
   if(e.key==='Unidentified'||e.key==='Process')return; // الجوال: يعالَج عبر input
   let ch=e.key;
-  if(!ARABIC.test(ch))ch=MAP[e.code]||'';
+  if(!ARABIC.test(ch)){
+    if(!/^[a-z;,.\/'\[\]`]$/i.test(ch))return;      // مفاتيح التحكم وغيرها: تجاهل
+    if(!useMap){hintT=2.5;return}                      // لوحة غير عربية: نعرض تلميحاً
+    ch=MAP[e.code]||'';
+  }
   if(ch){e.preventDefault();press(ch)}
 });
 kb.addEventListener('input',()=>{const v=kb.value;kb.value='';if(v)press(v.slice(-1))});
@@ -112,7 +121,7 @@ function frame(now){
   if(state==='play'){
     jt=Math.min(1,jt+dt/JUMP);
     gap-=Math.min(62,(16+idx*.7)*L.speed)*dt;
-    shake=Math.max(0,shake-dt);flash=Math.max(0,flash-dt);
+    shake=Math.max(0,shake-dt);hintT=Math.max(0,hintT-dt);flash=Math.max(0,flash-dt);
     if(gap<=0)over();
   }
   if(plats){const v=vis();camY+=(v.y-camY)*Math.min(1,dt*8);draw(v)}
@@ -152,6 +161,7 @@ function draw(v){
   const lg=ctx.createLinearGradient(0,lt,0,lt+120);lg.addColorStop(0,'#ff8a3d');lg.addColorStop(1,'#c4311a');
   ctx.fillStyle=lg;ctx.fill();
   ctx.restore();
+  if(hintT>0){ctx.fillStyle='#ff5a36';rr(40,100,W-80,64,12);ctx.fill();ctx.fillStyle='#fff';ctx.font='700 18px Cairo,Tahoma,sans-serif';ctx.fillText('لوحة المفاتيح ليست على العربية',W/2,122);ctx.fillText('بدّل لغة الكتابة ثم أعد المحاولة',W/2,148)}
   if(state==='play'&&idx===0){ctx.fillStyle='#f6f3ea';ctx.font='700 20px Cairo,Tahoma,sans-serif';ctx.textAlign='center';ctx.fillText('اكتب الحرف الأخضر',W/2,60)}
 }
 menu();requestAnimationFrame(t=>{last=t;frame(t)});
