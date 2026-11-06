@@ -34,7 +34,7 @@
         }
         .instructions {
             position: absolute; bottom: 10px; width: 100%; text-align: center;
-            font-size: 13px; color: rgba(255,255,255,0.5); pointer-events: none; z-index: 5;
+            font-size: 13px; color: rgba(255,255,255,0.6); pointer-events: none; z-index: 5; background: rgba(0,0,0,0.2); padding:5px;
         }
 
         /* 🥷 شخصية اللاعب */
@@ -60,7 +60,7 @@
         }
 
         .typed {
-            color: #ff3366 !important; /* اللون للتدليل على نجاح الحروف */
+            color: #ff3366 !important; 
             text-shadow: 0 0 5px rgba(255, 51, 102, 0.8);
             font-weight: bold;
         }
@@ -91,7 +91,7 @@
 <div id="game-board">
     <!-- UI Area -->
     <div class="hud" id="hud">⭐ <span id="scoreText">0</span></div>
-    <div class="instructions">ملاحظة: اضغط Backspace أو ESC إذا أخطأت لإلغاء القفل 🔴<br>يرجى تحويل لغة كيبورد الجهاز إلى اللغة العربية أولاً.</div>
+    <div class="instructions">إذا أخطأت بكلمة اضغط ESC للإلغاء.<br>الآن، لا تهتم باختلاف لوحات المفاتيح او لغة الكيبورد! 🔥</div>
     
     <!-- Player Object -->
     <div id="player" class="hidden">🥷</div>
@@ -99,7 +99,7 @@
     <!-- Menus -->
     <div id="startScreen" class="overlay">
         <h1>قفزة المفاتيح (عربي)</h1>
-        <p>اقفز بالنینجا عبر كتابة الكلمات باللغة العربية. إذا واجهت منصات طويلة ولم تُسرع، فسوف يسقط النینجا!</p>
+        <p>اقفز عبر كتابة الكلمات لتصعد. النظام الذكي يتكيف مع جميع تخطيطات الأجهزة!</p>
         <button onclick="startGame()">▶ بدء اللعب</button>
     </div>
 
@@ -111,11 +111,40 @@
 </div>
 
 <script>
+/* ==================== 🛠️ النظام الذكي للمطابقة والتخطي للمفاتيح ==================== */
+
+// تحويل الأزرار الإنجليزية في لوحات 101/Mac للعربية إن نسى المستخدم تغيير اللغة
+const layoutMapper = {
+    'a':'ش', 's':'س', 'd':'ي', 'f':'ب', 'g':'ل', 'h':'ا', 'j':'ت', 'k':'ن', 'l':'م', 
+    'q':'ض', 'w':'ص', 'e':'ث', 'r':'ق', 't':'ف', 'y':'غ', 'u':'ع', 'i':'ه', 'o':'خ', 'p':'ح', 
+    'z':'ئ', 'x':'ء', 'c':'ؤ', 'v':'ر', 'b':'لا', 'n':'ى', 'm':'ة',
+    ';':'ك', '\'':'ط', '[':'ج', ']':'د', ',':'و', '.':'ز', '/':'ظ', '`':'ذ'
+};
+
+// الدالة الأهم: تقوم بدمج الاختلافات وجعل الأبجديات المتطابقة متكافئة بغض النظر عن نظام الويندوز/الماك
+function normalizeArabicChar(char) {
+    if (!char) return '';
+    // في حال نسى الكيبورد بالإنجليزي ترجم المدخل تلقائياً:
+    let mapped = layoutMapper[char.toLowerCase()] || char; 
+    
+    // قواعد التجاهل والمسامحة لجعل اللعب سهلاً باختلاف لوحات الكيبورد (Normalization)
+    if (['أ', 'إ', 'آ', 'ا'].includes(mapped)) return 'ا'; 
+    if (['ة', 'ه'].includes(mapped)) return 'ه';
+    if (['ي', 'ى', 'ی'].includes(mapped)) return 'ي'; // الفارسية أو الباء بدون نقط والمقصورة 
+    if (['ك', 'ک'].includes(mapped)) return 'ك'; // حرف الكاف المتغير حسب الدول والتخطيطات 
+    return mapped;
+}
+
+// دالة المقارنة المطورة والعبقرية التي تتفهم الضغط الفعلي مع المطلوب من المنصة
+function isMatch(pressedKey, expectedTarget) {
+    return normalizeArabicChar(pressedKey) === normalizeArabicChar(expectedTarget);
+}
+
+
 /* ==================== 📚 القاموس ==================== */
-// قواميس مخصصة، مصنفة حسب مستويات تزداد تدريجياً لضمان تصاعد متعة التحدي 
 const dictionary = {
     lvl1: ["ام", "هو", "لو", "هم", "اب", "لم", "اخ", "هل", "بحر", "لا", "بنا", "حب", "حق"],
-    lvl2: ["قلم", "ورد", "سيف", "نهر", "بحر", "عمل", "عرب", "موز", "تمر", "كوب", "سحب", "سهم"],
+    lvl2: ["قلم", "ورد", "سيف", "نهر", "عمل", "عرب", "موز", "تمر", "كوب", "سحب", "سهم"],
     lvl3: ["مدرسة", "نجمة", "حديقة", "نجاح", "دولة", "قوة", "سوق", "جبال", "علوم", "لوحة", "شمس"],
     lvl4: ["كمبيوتر", "مبرمج", "إدارة", "سعادة", "ابتكار", "تقنية", "فضاء", "اتصال", "تحديات", "تصميم", "فلسفة"]
 };
@@ -124,12 +153,10 @@ const dictionary = {
 const boardWidth = 400; const boardHeight = 600;
 const platW = 110; const platH = 20; const playerH = 40; const playerW = 40;
 
-let platforms = []; let pElts = {}; // Store Elements References mapped by unique id
+let platforms = []; let pElts = {}; 
 let fallSpeed = 0; let score = 0; 
 let player = { x:0, y:0, isJumping:false, el:null, platformRef: null, jumpToNode:null };
-let activeTarget = null;
-let gameActive = false; 
-let platformCount = 0; // لضمان تخصيص id فريد لكل عنصر (Unique)
+let activeTarget = null; let gameActive = false; let platformCount = 0; 
 
 const boardEl = document.getElementById("game-board");
 const playerEl = document.getElementById("player");
@@ -139,20 +166,21 @@ player.el = playerEl;
 
 /* ==================== 📝 محرك ومولّد اللعبة ==================== */
 
-// جلب كلمة مناسبة غير مستعملة أو تبدأ بنفس الحروف الحالية للمنع من تضارب الإختيار
+// التمحيص للمنع من التكرارات (استخدام الحروف الموحدة) 
 function getValidWord() {
     let pool = (score > 60) ? dictionary.lvl4 : (score > 30) ? dictionary.lvl3 : (score > 10) ? dictionary.lvl2 : dictionary.lvl1;
-    if(!pool) pool = dictionary.lvl2;
-
     let maxAttempts = 30; let attempt = 0;
+    
     while(attempt < maxAttempts) {
         let picked = pool[Math.floor(Math.random() * pool.length)];
-        let clash = platforms.some(p => p.word.startsWith(picked[0]));
+        // تحقق عبر الحرف الاول بصيغة ال Normalization لتجنب الخلاف
+        let startN = normalizeArabicChar(picked[0]);
+        let clash = platforms.some(p => normalizeArabicChar(p.word[0]) === startN);
+        
         if(!clash) return picked; 
         attempt++;
     }
-    // احتياط لكي لا يحدث تعليق اللعبة بسبب شروط الحرف المكرر 
-    return pool[Math.floor(Math.random() * pool.length)] + (platformCount % 2 === 0 ? "" : " "); 
+    return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function createPlatform(yLoc, isCenter=false) {
@@ -160,28 +188,21 @@ function createPlatform(yLoc, isCenter=false) {
     let id = "plat_" + (platformCount++);
     let newWord = getValidWord();
     
-    // حفظ المنصة بمصفوفة كمنظومة فيزيائية (Data object)
     let pObj = { id: id, x: xLoc, y: yLoc, word: newWord.trim(), typedLength: 0, el: null, tEl: null, isDead: false };
     platforms.push(pObj);
     
-    // حقن وتحديث منصة الـ HTML بصرياً (View Layer)
-    let pDiv = document.createElement("div");
-    pDiv.className = "platform";
-    let textDiv = document.createElement("div");
-    textDiv.className = "word-display";
+    let pDiv = document.createElement("div"); pDiv.className = "platform";
+    let textDiv = document.createElement("div"); textDiv.className = "word-display";
     
-    // بناء كلمة كاملة دون تغيير عند الإنشاء
     textDiv.innerHTML = renderHTMLWord(pObj); 
-    
     pDiv.appendChild(textDiv);
     boardEl.appendChild(pDiv);
     pObj.el = pDiv; pObj.tEl = textDiv;
-    pElts[id] = pObj;
 
     return pObj;
 }
 
-// عرض النصوص العربية باحترافية عن طريق تجزئة وتلوين (Spans) المنجز من الحروف.
+// عرض النصوص
 function renderHTMLWord(p) {
     if (p.typedLength === 0) return p.word;
     let finishedPart = p.word.substring(0, p.typedLength);
@@ -189,19 +210,15 @@ function renderHTMLWord(p) {
     return `<span class="typed">${finishedPart}</span><span>${remainPart}</span>`;
 }
 
-
 function startGame() {
     document.getElementById("startScreen").classList.add("hidden");
     document.getElementById("gameOverScreen").classList.add("hidden");
     
-    // مسح الدورة السابقة نهائياً إن وجدت وتصفير الجلسة.
     platforms.forEach(p => p.el.remove()); 
     platforms = []; activeTarget = null; platformCount = 0; score = 0; fallSpeed = 0.5;
     scoreText.innerText = "0";
 
-    // زرع المنصات وتحديد مواقعها العمودية الإبتدائية
     let yMarker = boardHeight - 80;
-    // البداية دائما من تحت والكلمات أطول كلما اتجهت المنصات لفوق الشاشة
     for (let i = 0; i < 7; i++) {
         let isFirstNode = (i === 0);
         let nObj = createPlatform(yMarker, isFirstNode); 
@@ -212,110 +229,72 @@ function startGame() {
             player.x = nObj.x + (platW/2) - (playerW/2);
             player.y = nObj.y - playerH;
         }
-        yMarker -= 90; // البعد بين السحبات/المنصات.
+        yMarker -= 90; 
     }
     
     gameActive = true;
     requestAnimationFrame(gameLoop);
 }
 
-
-/* ==================== 🕹 ديناميكا فيزياء محرك اللعبة الرئيسي ==================== */
-
+/* ==================== 🕹 فيزياء المحرك الرئيسي ==================== */
 function gameLoop() {
     if (!gameActive) return;
 
-    let highestYPlatformLoc = platforms[platforms.length - 1]?.y || 0; // Highest منصة بمعنى Y الاصغر رياضيا باللغة السالبة لأن المتجهين لأعلى سالبة نسبياً
-
-    // إضافة الكاميرا الذكية التي تتغير لمركز النينجا بشكل ديناميكي إن صعد. 
-    // اذا كان (Y) اقل من منتصف الطول يمر بتعديل الكاميرا بالدفع المتوالي 
-    let centerCameraAdj = 0;
-    let cameraTreshold = (boardHeight * 0.55); // عند تجاوز اللاعب المنتصف لأعلى.. 
-
+    let centerCameraAdj = 0; let cameraTreshold = (boardHeight * 0.55); 
     if (player.y < cameraTreshold) {
-        centerCameraAdj = (cameraTreshold - player.y) * 0.15; // تأثير سلاسة التصحيح والانتقال Lerp camera Smooth 
+        centerCameraAdj = (cameraTreshold - player.y) * 0.15; 
     }
-    
-    // تفعيل الحركة الإعتيادية (الإنحدار التلقائي للمستويات - الجاذبية والسقوط الحر المستمر ببطء)
     let moveAmount = fallSpeed + centerCameraAdj;
     
     platforms.forEach(p => {
-        p.y += moveAmount; // جميع المنصات تهبط لأسفل كمرور للزمن وكاميرا 
+        p.y += moveAmount; 
         p.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
     });
     
-    /* ميكانيكا تدمير المستوى وبناء من جديد اذا طار بعيدا واختفى لتحت. */
-    let minimumVisibileIndex = -1;
     for(let i=0; i<platforms.length; i++){
         let pt = platforms[i];
-        if(pt.y > boardHeight + 60 && !pt.isDead) { // إذا سقط للاسفل واختفى.. دمره.
-            pt.el.remove();
-            pt.isDead = true; 
-            // تأكد انه لو وقع وكانت الكاميرا مركزه يفك التركيز من الهدف 🔴 
+        if(pt.y > boardHeight + 60 && !pt.isDead) { 
+            pt.el.remove(); pt.isDead = true; 
             if(activeTarget === pt) activeTarget = null;
         }
     }
     platforms = platforms.filter(x => !x.isDead);
 
-    // إذا المنصات أصبحت في مسار مكشوف قليل في الأعلى أقم بالإنشاء وتمديدها عالياً
-    let firstInQueue_yOffsetTopMostNode = platforms[platforms.length-1].y; 
-    if(firstInQueue_yOffsetTopMostNode > 0){ 
-        // استخرجت منصة قمة, نلحق ونحمي الصاعد 
-        createPlatform(firstInQueue_yOffsetTopMostNode - 100); 
-    }
+    let firstTop = platforms[platforms.length-1].y; 
+    if(firstTop > 0){ createPlatform(firstTop - 100); }
 
-
-    // /* == أنيميشن وإخراج حركة الاعب == */ 
     if(player.isJumping && player.jumpToNode) {
-        // حركه بقانون خط سير السلاسة والأنمياشن التدريجية (Linear Interpolation) للقفز.
-        let targetX_real = player.jumpToNode.x + (platW/2) - (playerW/2);
-        let targetY_real = player.jumpToNode.y - playerH;
+        let tx = player.jumpToNode.x + (platW/2) - (playerW/2); let ty = player.jumpToNode.y - playerH;
+        let lx = (tx - player.x) * 0.45; let ly = (ty - player.y) * 0.45; 
         
-        let lx = (targetX_real - player.x) * 0.45; // أداء قفز سرعته جدا محفزة
-        let ly = (targetY_real - player.y) * 0.45; 
-        
-        player.x += lx; 
-        player.y += (ly + moveAmount); // خذ بعين الاعتبار إن المستوى بالأساس أيضاً يهبط أثتاء الأنيميشن!
-        
-        // التحقق من اصطدامه الفعلي بها لو قريبة: (End-Snap Snap lock and set ref platform completely active jump disabled)
-        if(Math.abs(targetX_real - player.x) < 4 && Math.abs(targetY_real - player.y) < 4) {
-            player.x = targetX_real;
-            player.y = targetY_real;
-            player.platformRef = player.jumpToNode;
-            player.isJumping = false;
+        player.x += lx; player.y += (ly + moveAmount); 
+        if(Math.abs(tx - player.x) < 4 && Math.abs(ty - player.y) < 4) {
+            player.x = tx; player.y = ty; player.platformRef = player.jumpToNode; player.isJumping = false;
         }
-    } 
-    else if(player.platformRef) {
-        // التصاق شديد لضمان الجاذبية والثقل الملاصق لو واقف ولم ينجز كتابات (معادل انشراح الجاذبية)
-        player.x = player.platformRef.x + (platW/2) - (playerW/2);
-        player.y = player.platformRef.y - playerH; 
+    } else if(player.platformRef) {
+        player.x = player.platformRef.x + (platW/2) - (playerW/2); player.y = player.platformRef.y - playerH; 
     }
     
     playerEl.style.transform = `translate(${player.x}px, ${player.y}px)`;
 
-    /* موت وخسارة البطل اذا تدحرج ووصل لأدنى حد الشاشة بسبب ضعف وتأخره أو سقوطه الفعلي */ 
     if(player.y > boardHeight + playerH) { 
-       gameEndSystemRun();
+       gameActive = false; finalScoreText.innerText = score;
+       document.getElementById("gameOverScreen").classList.remove("hidden");
        return; 
     }
 
     requestAnimationFrame(gameLoop);
 }
 
-function gameEndSystemRun() {
-    gameActive = false;
-    finalScoreText.innerText = score;
-    document.getElementById("gameOverScreen").classList.remove("hidden");
-}
-
-
-/* ==================== ⌨ معالجة مدخلات اللغة وربط أحداث الكتابة بلوحة التحكم ==================== */
+/* ==================== ⌨ الربط والمقارنات المطوّرة  ==================== */
 
 document.addEventListener("keydown", (e) => {
     if (!gameActive) return;
     let k = e.key;
 
-    // استسلام والغاء تحديد (Cancel Selection System by ESP | BACKSPACE)
+    // تجاوز الإدخالات الغير معنية
+    if(['Shift', 'Alt', 'Control', 'Meta', 'CapsLock'].includes(k)) return;
+
     if (k === 'Escape' || k === 'Backspace') {
         if(activeTarget){ 
            activeTarget.typedLength = 0; 
@@ -324,48 +303,33 @@ document.addEventListener("keydown", (e) => {
         }
         return;
     }
-    
-    // أقصى حجم حروف هي واحد 
-    if(k.length > 1) return;
+    if(k.length > 1) return; // للحمايه من زر TAB وغيره
 
     if (!activeTarget) { 
-        // محرك ايجاد أعلى أقرب مناسب: البحث على أعلى الارتفاعات المرئية التي توجد فيها بدايات كلمة.
-        // فقط يلقط كلمات من الكائنات غير الميتة ومنصة اعلى وأعمق مسافتا من البطل نفسه! 
-        let options = platforms.filter(c => (c.y < (player.y + 40)) && c.word.startsWith(k));
+        // استخرج المنصات المتواجدة أسفل النينجا وأعلى الشاشة فقط ومررها على (مدقق الذكاء المُوحّد):
+        let options = platforms.filter(c => (c.y < (player.y + 40)) && isMatch(k, c.word[0]));
         
         if (options.length > 0) {
-            // نأخذ الموجه الأسفل/الاقرب إلينا. الرياضي للفرز.. Y كل ما كانت كبيرة فهي اقرب لأسفل (العين).
-            options.sort((a,b) => b.y - a.y);
+            options.sort((a,b) => b.y - a.y); // تحديد الهدف الأسفل / الاقرب للأرض.
             activeTarget = options[0];
             activeTarget.typedLength = 1;
             activeTarget.tEl.innerHTML = renderHTMLWord(activeTarget);
             evaluateTarget(activeTarget); 
         } 
-        
-    } 
-    else { 
-        // المستخدم كان مثبت عين وأحكم حرف أخير ، يدخِل الباقي.. 
-        // نتأكد هل فعلاً أضغط التالي الصحيح بالمحكم المطلوب ام حرف عشوائي متشتت 
-        if (activeTarget.word[activeTarget.typedLength] === k) { 
+    } else { 
+        // التأكد بالحروف التالية للكلمة المختارة مسبقا.. باستخدام دالة المقارنة المتسامحة الموحدة:
+        if (isMatch(k, activeTarget.word[activeTarget.typedLength])) { 
              activeTarget.typedLength++;
              activeTarget.tEl.innerHTML = renderHTMLWord(activeTarget);
              evaluateTarget(activeTarget);
         }
     }
-
 });
 
 function evaluateTarget(nTargetE) {
     if(nTargetE.typedLength === nTargetE.word.length) { 
-        // إذا قام بتخليص وانجاز السطوح من جميع الاحرف المطلوبه .. تمت ! ✅🔥
-        player.jumpToNode = nTargetE;
-        player.isJumping = true; 
-        player.platformRef = null; 
-        
-        activeTarget = null; 
-        score += nTargetE.word.length * 10;
-        fallSpeed += 0.05; // اجعل السرعة والمستوى يعزف أصعب ويحاسبه 💥
-        scoreText.innerText = score;
+        player.jumpToNode = nTargetE; player.isJumping = true; player.platformRef = null; activeTarget = null; 
+        score += nTargetE.word.length * 10; fallSpeed += 0.05; scoreText.innerText = score;
     }
 }
 </script>
